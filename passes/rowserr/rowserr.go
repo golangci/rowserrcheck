@@ -43,13 +43,14 @@ func NewRun(pkgs ...string) func(pass *analysis.Pass) (interface{}, error) {
 			r.sqlPkgs = sqlPkgs
 			r.run(pass, pkg)
 		}
+
 		return nil, nil
 	}
 }
 
 // run executes an analysis for the pass. The receiver is passed
 // by value because this func is called in parallel for different passes.
-func (r runner) run(pass *analysis.Pass, pkgPath string) {
+func (r *runner) run(pass *analysis.Pass, pkgPath string) {
 	r.pass = pass
 	pssa := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	funcs := pssa.SrcFuncs
@@ -65,6 +66,7 @@ func (r runner) run(pass *analysis.Pass, pkgPath string) {
 		// skip checking
 		return
 	}
+
 	r.rowsObj = rowsType.Object()
 	if r.rowsObj == nil {
 		// skip checking
@@ -119,11 +121,15 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 		if !ok {
 			continue
 		}
+
 		if len(*val.Referrers()) == 0 {
 			continue
 		}
+
 		resRefs := *val.Referrers()
+
 		var errCalled func(resRef ssa.Instruction) bool
+
 		errCalled = func(resRef ssa.Instruction) bool {
 			switch resRef := resRef.(type) {
 			case *ssa.Phi:
@@ -137,6 +143,7 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 					switch c := aref.(type) {
 					case *ssa.MakeClosure:
 						f := c.Fn.(*ssa.Function)
+
 						called := r.isClosureCalled(c)
 						if r.calledInFunc(f, called) {
 							return true
@@ -153,6 +160,7 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 				if r.isErrCall(resRef) {
 					return true
 				}
+
 				if f, ok := resRef.Call.Value.(*ssa.Function); ok {
 					for _, b := range f.Blocks {
 						for i := range b.Instrs {
@@ -203,6 +211,7 @@ func (r *runner) getCallReturnsRow(instr ssa.Instruction) (*ssa.Call, bool) {
 		if types.Identical(typeToCheck, r.rowsTyp) {
 			return call, true
 		}
+
 		if r.rowsInterface != nil && types.Implements(typeToCheck, r.rowsInterface) {
 			return call, true
 		}
@@ -217,6 +226,7 @@ func (r *runner) getRowsVal(instr ssa.Instruction) (ssa.Value, bool) {
 		if len(instr.Call.Args) == 1 && types.Identical(instr.Call.Args[0].Type(), r.rowsTyp) {
 			return instr.Call.Args[0], true
 		}
+
 		if len(instr.Call.Args) == 1 && r.rowsInterface != nil && types.Implements(instr.Call.Args[0].Type(), r.rowsInterface) {
 			return instr.Call.Args[0], true
 		}
@@ -224,6 +234,7 @@ func (r *runner) getRowsVal(instr ssa.Instruction) (ssa.Value, bool) {
 		if types.Identical(instr.Type(), r.rowsTyp) {
 			return instr, true
 		}
+
 		if r.rowsInterface != nil && types.Implements(instr.Type(), r.rowsInterface) {
 			return instr, true
 		}
@@ -251,6 +262,7 @@ func (r *runner) isErrCall(ccall ssa.Instruction) bool {
 		if ccall.Call.Value != nil && ccall.Call.Value.Name() == errMethod {
 			return true
 		}
+
 		if ccall.Call.Method != nil && ccall.Call.Method.Name() == errMethod {
 			return true
 		}
@@ -258,6 +270,7 @@ func (r *runner) isErrCall(ccall ssa.Instruction) bool {
 		if ccall.Call.Value != nil && ccall.Call.Value.Name() == errMethod {
 			return true
 		}
+
 		if ccall.Call.Method != nil && ccall.Call.Method.Name() == errMethod {
 			return true
 		}
@@ -283,6 +296,7 @@ func (r *runner) calledInFunc(f *ssa.Function, called bool) bool {
 			switch instr := instr.(type) {
 			case *ssa.UnOp:
 				for _, ref := range *instr.Referrers() {
+					//nolint:nestif // need to be reviewed.
 					if v, ok := ref.(ssa.Value); ok {
 						if vCall, ok := v.(*ssa.Call); ok {
 							if vCall.Call.Value != nil && vCall.Call.Value.Name() == errMethod {
@@ -300,5 +314,6 @@ func (r *runner) calledInFunc(f *ssa.Function, called bool) bool {
 			}
 		}
 	}
+
 	return false
 }

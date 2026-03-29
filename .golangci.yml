@@ -1,43 +1,59 @@
-linters-settings:
-  govet:
-    check-shadowing: true
-  golint:
-    min-confidence: 0
-  maligned:
-    suggest-new: true
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  gocritic:
-    enabled-tags:
-    - performance
-    - style
-    - experimental
-    disabled-checks:
-    - wrapperFunc
+version: "2"
 
 linters:
-  enable-all: true
+  default: all
+
   disable:
-  - maligned
-  - prealloc
-  - gochecknoglobals
+    - cyclop
+    - gocyclo
+    - depguard
+    - exhaustruct
+    - forcetypeassert
+    - funlen
+    - gochecknoglobals
+    - gocognit
+    - ireturn
+    - nonamedreturns
+    - paralleltest
+    - prealloc
+    - varnamelen
+    - wsl
 
-run:
-  skip-dirs:
-  - passes/rowserr/testdata
+  settings:
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      disabled-checks:
+        - wrapperFunc
+      enabled-tags:
+        - performance
+        - style
+        - experimental
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
 
-issues:
-  exclude-rules:
-  - text: "weak cryptographic primitive"
-    linters:
-    - gosec
+  exclusions:
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gosec
+        text: weak cryptographic primitive
 
-service:
-  golangci-lint-version: 1.15.x # use the fixed version to not introduce new linters unexpectedly
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
