@@ -3,6 +3,7 @@ package rowserr
 import (
 	"go/ast"
 	"go/types"
+	"slices"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -35,9 +36,9 @@ type runner struct {
 	sqlPkgs       []string
 }
 
-func NewRun(pkgs ...string) func(pass *analysis.Pass) (interface{}, error) {
-	return func(pass *analysis.Pass) (interface{}, error) {
-		sqlPkgs := append(pkgs, "database/sql")
+func NewRun(pkgs ...string) func(pass *analysis.Pass) (any, error) {
+	return func(pass *analysis.Pass) (any, error) {
+		sqlPkgs := slices.Concat(pkgs, []string{"database/sql"})
 		for _, pkg := range sqlPkgs {
 			r := new(runner)
 			r.sqlPkgs = sqlPkgs
@@ -90,8 +91,8 @@ func (r *runner) run(pass *analysis.Pass, pkgPath string) {
 		// skip if the function is just referenced
 		var isRefFunc bool
 
-		for i := 0; i < f.Signature.Results().Len(); i++ {
-			if types.Identical(f.Signature.Results().At(i).Type(), r.rowsTyp) {
+		for v := range f.Signature.Results().Variables() {
+			if types.Identical(v.Type(), r.rowsTyp) {
 				isRefFunc = true
 			}
 		}
@@ -133,10 +134,8 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 		errCalled = func(resRef ssa.Instruction) bool {
 			switch resRef := resRef.(type) {
 			case *ssa.Phi:
-				for _, rf := range *resRef.Referrers() {
-					if errCalled(rf) {
-						return true
-					}
+				if slices.ContainsFunc(*resRef.Referrers(), errCalled) {
+					return true
 				}
 			case *ssa.Store: // Call in Closure function
 				for _, aref := range *resRef.Addr.Referrers() {
@@ -149,10 +148,8 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 							return true
 						}
 					case *ssa.UnOp:
-						for _, rf := range *c.Referrers() {
-							if errCalled(rf) {
-								return true
-							}
+						if slices.ContainsFunc(*c.Referrers(), errCalled) {
+							return true
 						}
 					}
 				}
@@ -177,10 +174,8 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 						continue
 					}
 
-					for _, ccall := range *bOp.Referrers() {
-						if r.isErrCall(ccall) {
-							return true
-						}
+					if slices.ContainsFunc(*bOp.Referrers(), r.isErrCall) {
+						return true
 					}
 				}
 			}
@@ -188,10 +183,8 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 			return false
 		}
 
-		for _, resRef := range resRefs {
-			if errCalled(resRef) {
-				return false
-			}
+		if slices.ContainsFunc(resRefs, errCalled) {
+			return false
 		}
 	}
 
@@ -206,8 +199,8 @@ func (r *runner) getCallReturnsRow(instr ssa.Instruction) (*ssa.Call, bool) {
 
 	res := call.Call.Signature().Results()
 
-	for i := 0; i < res.Len(); i++ {
-		typeToCheck := res.At(i).Type()
+	for v := range res.Variables() {
+		typeToCheck := v.Type()
 		if types.Identical(typeToCheck, r.rowsTyp) {
 			return call, true
 		}
