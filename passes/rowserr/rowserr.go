@@ -117,27 +117,43 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 		return false
 	}
 
+	if call.Referrers() == nil {
+		return false
+	}
+
 	for _, cRef := range *call.Referrers() {
 		val, ok := r.getRowsVal(cRef)
 		if !ok {
 			continue
 		}
 
-		if len(*val.Referrers()) == 0 {
-			continue
+		if val.Referrers() == nil {
+			return false
 		}
 
 		resRefs := *val.Referrers()
+
+		if len(resRefs) == 0 {
+			continue
+		}
 
 		var errCalled func(resRef ssa.Instruction) bool
 
 		errCalled = func(resRef ssa.Instruction) bool {
 			switch resRef := resRef.(type) {
 			case *ssa.Phi:
+				if resRef.Referrers() == nil {
+					return false
+				}
+
 				if slices.ContainsFunc(*resRef.Referrers(), errCalled) {
 					return true
 				}
 			case *ssa.Store: // Call in Closure function
+				if resRef.Addr.Referrers() == nil {
+					return false
+				}
+
 				for _, aref := range *resRef.Addr.Referrers() {
 					switch c := aref.(type) {
 					case *ssa.MakeClosure:
@@ -148,6 +164,10 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 							return true
 						}
 					case *ssa.UnOp:
+						if c.Referrers() == nil {
+							continue
+						}
+
 						if slices.ContainsFunc(*c.Referrers(), errCalled) {
 							return true
 						}
@@ -168,9 +188,17 @@ func (r *runner) errCallMissing(b *ssa.BasicBlock, i int) (ret bool) {
 					}
 				}
 			case *ssa.FieldAddr:
+				if resRef.Referrers() == nil {
+					return false
+				}
+
 				for _, bRef := range *resRef.Referrers() {
 					bOp, ok := r.getBodyOp(bRef)
 					if !ok {
+						continue
+					}
+
+					if bOp.Referrers() == nil {
 						continue
 					}
 
@@ -273,6 +301,10 @@ func (r *runner) isErrCall(ccall ssa.Instruction) bool {
 }
 
 func (r *runner) isClosureCalled(c *ssa.MakeClosure) bool {
+	if c.Referrers() == nil {
+		return false
+	}
+
 	for _, ref := range *c.Referrers() {
 		switch ref.(type) {
 		case *ssa.Call, *ssa.Defer:
@@ -288,6 +320,10 @@ func (r *runner) calledInFunc(f *ssa.Function, called bool) bool {
 		for i, instr := range b.Instrs {
 			switch instr := instr.(type) {
 			case *ssa.UnOp:
+				if instr.Referrers() == nil {
+					continue
+				}
+
 				for _, ref := range *instr.Referrers() {
 					//nolint:nestif // need to be reviewed.
 					if v, ok := ref.(ssa.Value); ok {
