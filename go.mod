@@ -1,4 +1,4 @@
-module github.com/jingyugao/rowserrcheck
+module github.com/golangci/rowserrcheck
 
 go 1.25.0
 

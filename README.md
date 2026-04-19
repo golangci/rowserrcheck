@@ -1,15 +1,16 @@
 # rowserrcheck
 
-[![CircleCI](https://circleci.com/gh/jingyugao/rowserrcheck.svg?style=svg)](https://circleci.com/gh/jingyugao/rowserrcheck)
+> [!IMPORTANT]
+> This is a fork of [rowserrcheck](https://github.com/jingyugao/rowserrcheck).
+> This is a hard fork because `rowserrcheck` is a fork of [bodyclose](https://github.com/timakin/bodyclose).
+> GitHub does not allow forking two forks of the same repository.
 
 `rowserrcheck` is a static analysis tool which checks whether `sql.Rows.Err` is correctly checked.
 
 ## Install
 
-You can get `rowserrcheck` by `go get` command.
-
 ```bash
-$ go get -u github.com/jingyugao/rowserrcheck
+go install github.com/golangci/rowserrcheck@latest
 ```
 
 ## Analyzer
@@ -45,4 +46,5 @@ data from database, `rows.Next` will return false, and you will get an incomplet
 even it seems everything is ok. This will cause serious accident.
 
 ## Thanks
-Thanks for [timakin](https://github.com/jingyugao/rowserrcheck).
+
+Thanks for [timakin](https://github.com/timakin/bodyclose).
