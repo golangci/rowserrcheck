@@ -8,9 +8,11 @@ linters:
     - gocyclo
     - depguard
     - exhaustruct
+    - exhaustruct_v5
     - forcetypeassert
     - funlen
     - gochecknoglobals
+    - gomodguard
     - gocognit
     - ireturn
     - nonamedreturns
@@ -57,3 +59,8 @@ formatters:
     - gofmt
     - gofumpt
     - goimports
+  settings:
+    gofumpt:
+      extra:
+        clothe-returns: true
+        group-params: true
